@@ -11,7 +11,7 @@ jobs:
     runs-on: self-hosted
 
     env:
-      IMAGE_NAME: 143471984294.dkr.ecr.us-east-1.amazonaws.com/my-ecr-dev:latest
+      IMAGE_NAME: 143471984294.dkr.ecr.us-east-1.amazonaws.com/my-ecr-dev:latest-patient
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 143471984294
 
@@ -49,3 +49,4 @@ jobs:
       - name: Cleanup disk space
         run: |
           sudo rm -rf /home/ubuntu/actions-runner/_work/*
+
