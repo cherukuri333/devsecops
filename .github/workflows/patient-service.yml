@@ -14,9 +14,10 @@ jobs:
       IMAGE_NAME: 143471984294.dkr.ecr.us-east-1.amazonaws.com/my-ecr-dev:latest-patient
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: 143471984294
+      TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
+      TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db
 
     steps:
-
       - name: Checkout Repo
         uses: actions/checkout@v3
 
@@ -34,19 +35,29 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          sudo docker build -t $IMAGE_NAME patient-service
+          docker build -t $IMAGE_NAME patient-service
           echo "Docker image $IMAGE_NAME built successfully"
+
+      # Trivy Image Scan (FAIL on HIGH / CRITICAL)
+      - name: Trivy Image Scan
+        run: |
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --exit-code 1 \
+            --no-progress \
+            $IMAGE_NAME
 
       - name: Login to AWS ECR
         run: |
-          aws ecr get-login-password --region $AWS_REGION | sudo docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+          aws ecr get-login-password --region $AWS_REGION | \
+          docker login --username AWS --password-stdin \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
       - name: Push Docker Image to ECR
         run: |
-          sudo docker push $IMAGE_NAME
+          docker push $IMAGE_NAME
           echo "Docker image pushed to ECR successfully"
 
       - name: Cleanup disk space
         run: |
-          sudo rm -rf /home/ubuntu/actions-runner/_work/*
-
+          docker system prune -af
