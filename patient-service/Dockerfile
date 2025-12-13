@@ -1,4 +1,4 @@
-#Build stage (optional, JAR already built by Maven)oi
+#Build stage (optional, JAR already built by Maven)
 FROM eclipse-temurin:17-jdk-alpine AS build
 WORKDIR /app
 COPY target/patient-service-0.0.1-SNAPSHOT.jar app.jar
@@ -10,6 +10,7 @@ COPY --from=build /app/app.jar app.jar
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
 
 
 
