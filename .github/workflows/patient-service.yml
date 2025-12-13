@@ -1,105 +1,51 @@
-name: Setup AWS ECR and IAM Role
+name: Build Patient Service (Maven + Docker + ECR Push)
 
 on:
   push:
     branches: [ main ]
     paths:
-      - "ecr-iam-creation/**"
+      - "patient-service/**"
 
 jobs:
-  create-ecr-and-role:
+  build:
     runs-on: self-hosted
 
     env:
+      IMAGE_NAME: 143471984294.dkr.ecr.us-east-1.amazonaws.com/my-ecr-dev:latest
       AWS_REGION: us-east-1
-      ECR_REPOSITORY: my-ecr-dev
-      IAM_ROLE_NAME: github-ecr-role-dev
-      POLICY_NAME: github-ecr-push-policy-dev
-      RUNNER_ROLE_ARN: arn:aws:iam::158366596870:role/aws-opsworks-ec2-role
+      AWS_ACCOUNT_ID: 143471984294
 
     steps:
-      - name: Checkout code
+
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          java-version: '17'
+          distribution: 'temurin'
 
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity
+      - name: Build with Maven
+        run: mvn -f patient-service/pom.xml clean package -DskipTests
 
-      - name: Create ECR Repository (idempotent)
+      - name: Docker Version
+        run: docker --version
+
+      - name: Build Docker Image
         run: |
-          aws ecr describe-repositories \
-            --repository-names "$ECR_REPOSITORY" \
-          || aws ecr create-repository \
-            --repository-name "$ECR_REPOSITORY" \
-            --region "$AWS_REGION"
+          sudo docker build -t $IMAGE_NAME patient-service
+          echo "Docker image $IMAGE_NAME built successfully"
 
-      - name: Create IAM Role (idempotent)
+      - name: Login to AWS ECR
         run: |
-          TRUST_POLICY=$(cat <<EOF
-          {
-            "Version": "2012-10-17",
-            "Statement": [
-              {
-                "Effect": "Allow",
-                "Principal": {
-                  "AWS": "$RUNNER_ROLE_ARN"
-                },
-                "Action": "sts:AssumeRole"
-              }
-            ]
-          }
-          EOF
-          )
+          aws ecr get-login-password --region $AWS_REGION | sudo docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
-          aws iam get-role --role-name "$IAM_ROLE_NAME" >/dev/null 2>&1 || \
-          aws iam create-role \
-            --role-name "$IAM_ROLE_NAME" \
-            --assume-role-policy-document "$TRUST_POLICY"
-
-      - name: Create IAM Policy (idempotent)
+      - name: Push Docker Image to ECR
         run: |
-          POLICY_ARN=$(aws iam list-policies \
-            --scope Local \
-            --query "Policies[?PolicyName=='$POLICY_NAME'].Arn" \
-            --output text)
+          sudo docker push $IMAGE_NAME
+          echo "Docker image pushed to ECR successfully"
 
-          if [ -z "$POLICY_ARN" ]; then
-            POLICY_ARN=$(aws iam create-policy \
-              --policy-name "$POLICY_NAME" \
-              --policy-document "{
-                \"Version\": \"2012-10-17\",
-                \"Statement\": [
-                  {
-                    \"Effect\": \"Allow\",
-                    \"Action\": [
-                      \"ecr:GetAuthorizationToken\",
-                      \"ecr:BatchCheckLayerAvailability\",
-                      \"ecr:InitiateLayerUpload\",
-                      \"ecr:UploadLayerPart\",
-                      \"ecr:CompleteLayerUpload\",
-                      \"ecr:PutImage\",
-                      \"ecr:DescribeRepositories\"
-                    ],
-                    \"Resource\": \"arn:aws:ecr:${AWS_REGION}:${{ secrets.AWS_ACCOUNT_ID }}:repository/${ECR_REPOSITORY}\"
-                  }
-                ]
-              }" \
-              --query "Policy.Arn" \
-              --output text)
-          fi
-
-          ATTACHED=$(aws iam list-attached-role-policies --role-name "$IAM_ROLE_NAME" \
-            --query "AttachedPolicies[?PolicyArn=='$POLICY_ARN'].PolicyArn" \
-            --output text)
-
-          if [ -z "$ATTACHED" ]; then
-            aws iam attach-role-policy \
-              --role-name "$IAM_ROLE_NAME" \
-              --policy-arn "$POLICY_ARN"
-          fi
+      - name: Cleanup disk space
+        run: |
+          sudo rm -rf /home/ubuntu/actions-runner/_work/*
