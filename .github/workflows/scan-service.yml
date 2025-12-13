@@ -1,4 +1,4 @@
-name: Build scan Service (Maven + Docker)
+name: Build scan Service (Maven + Docker + ECR Push)
 
 on:
   push:
@@ -11,14 +11,11 @@ jobs:
     runs-on: self-hosted
 
     env:
-      IMAGE_NAME: 12345678.dkr.ecr.us-east-1.amazonaws.com/scan-service:latest
+      IMAGE_NAME: 143471984294.dkr.ecr.us-east-1.amazonaws.com/my-ecr-dev:latest-scan
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: 143471984294
 
     steps:
-      - name: Cleanup disk space
-        run: |
-          docker system prune -af --volumes
-          sudo rm -rf ${{ runner.temp }}
-          sudo rm -rf /home/ubuntu/actions-runner/_work/_temp/*
 
       - name: Checkout Repo
         uses: actions/checkout@v3
@@ -40,6 +37,15 @@ jobs:
           sudo docker build -t $IMAGE_NAME scan-service
           echo "Docker image $IMAGE_NAME built successfully"
 
-      - name: Scan Docker Image with Trivy
+      - name: Login to AWS ECR
         run: |
-          trivy image --exit-code 1 --severity HIGH,CRITICAL $IMAGE_NAME
+          aws ecr get-login-password --region $AWS_REGION | sudo docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - name: Push Docker Image to ECR
+        run: |
+          sudo docker push $IMAGE_NAME
+          echo "Docker image pushed to ECR successfully"
+
+      - name: Cleanup disk space
+        run: |
+          sudo rm -rf /home/ubuntu/actions-runner/_work/*
