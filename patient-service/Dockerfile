@@ -1,16 +1,16 @@
 # =========================
 # Stage 1: Build Stage
 # =========================
-FROM openjdk:17.0.8-jdk-slim AS build
+FROM openjdk:17-slim AS build
 WORKDIR /app
 
-# Copy Maven-built JAR (if already built) or build from source
+# Copy pre-built JAR
 COPY target/patient-service-0.0.1-SNAPSHOT.jar app.jar
 
 # =========================
 # Stage 2: Runtime Stage
 # =========================
-FROM eclipse-temurin:17.0.8_23-jre-jammy AS runtime
+FROM eclipse-temurin:17-jre-jammy AS runtime
 WORKDIR /app
 
 # Install latest libpng for security patches
