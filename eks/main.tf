@@ -3,7 +3,7 @@ locals {
   env = var.env
 }
 
-module "sai" {
+module "eks" {
   source = "../modules"
 }
 
