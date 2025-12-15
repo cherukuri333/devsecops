@@ -4,7 +4,7 @@ locals {
 }
 
 module "eks" {
-  source = "../../modules/eks"
+  source = "../modules"
 }
 
   env                   = var.env
