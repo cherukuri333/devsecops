@@ -1,5 +1,9 @@
+variable "cluster_name" {}
+variable "oidc_provider_arn" {}
+variable "cluster_oidc_issuer" {}
+
 resource "aws_iam_role" "alb_ingress_role" {
-  name = "${var.cluster-name}-alb-ingress-role"
+  name = "${var.cluster_name}-alb-ingress-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -7,12 +11,12 @@ resource "aws_iam_role" "alb_ingress_role" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.eks_oidc.arn
+          Federated = var.oidc_provider_arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "${replace(data.aws_eks_cluster.eks.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+            "${replace(var.cluster_oidc_issuer, "https://", "")}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
           }
         }
       }
@@ -25,6 +29,6 @@ resource "aws_iam_role_policy_attachment" "alb_ingress_attach" {
   policy_arn = "arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess"
 }
 
-output "alb_controller_role_arn" {
+output "alb_ingress_role_arn" {
   value = aws_iam_role.alb_ingress_role.arn
 }
