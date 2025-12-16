@@ -6,7 +6,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "clusterName"
-    value = var.cluster_name   # use underscore, not dash
+    value = var.cluster_name
   }
 
   set {
