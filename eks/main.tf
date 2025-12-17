@@ -1,14 +1,14 @@
 locals {
-  org = "ap-medium"
+  org = "medium"
   env = var.env
 }
 
 module "eks" {
-  source = "../module"
+  source = "../module/eks"
 
   env                   = var.env
+  aws-region            = var.aws-region
   cluster-name          = "${local.env}-${local.org}-${var.cluster-name}"
-  cidr-block            = var.vpc-cidr-block
   vpc-name              = "${local.env}-${local.org}-${var.vpc-name}"
   igw-name              = "${local.env}-${local.org}-${var.igw-name}"
   pub-subnet-count      = var.pub-subnet-count
